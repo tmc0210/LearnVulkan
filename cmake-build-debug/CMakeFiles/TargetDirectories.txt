@@ -1,0 +1,3 @@
+/Users/tmc/Documents/GitHub/LearnVulkan/cmake-build-debug/CMakeFiles/LearnVulkan.dir
+/Users/tmc/Documents/GitHub/LearnVulkan/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/tmc/Documents/GitHub/LearnVulkan/cmake-build-debug/CMakeFiles/rebuild_cache.dir
