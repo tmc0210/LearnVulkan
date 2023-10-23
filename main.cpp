@@ -28,10 +28,10 @@ const std::vector<const char*> deviceExtensions = {
 };
 #endif
 
-#ifdef NDEBUG
-const bool enableValidationLayers = false;
-#else
+#ifndef NDEBUG //Mac默认没有DEBUG这个宏，所以都是假的
 const bool enableValidationLayers = true;
+#else
+const bool enableValidationLayers = false;
 #endif
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -68,6 +68,10 @@ private:
     VkQueue graphicsQueue;
     VkSurfaceKHR surface;
     VkQueue presentQueue;
+    VkSwapchainKHR swapChain;
+    std::vector<VkImage> swapChainImages;
+    VkFormat swapChainImageFormat;
+    VkExtent2D swapChainExtent;
 
     //队列族返回值结构体
     struct QueueFamilyIndices {
@@ -197,6 +201,10 @@ private:
          * 例：设备要求满足几何着色器(还真不支持)。此外可以按照设备的特性加权取高分选用设备或由用户自行选择
          * return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
          */
+
+        VkPhysicalDeviceFeatures deviceFeatures;
+        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
         //确保设备支持需要指令的队列族
         QueueFamilyIndices indices = findQueueFamilies(device);
 
@@ -341,6 +349,26 @@ private:
             createInfo.pQueueFamilyIndices = nullptr;
         }
 
+        //指定固定变换操作，如旋转90度
+        createInfo.preTransform = swapchainSupport.capabilities.currentTransform;
+        //alpha通道是否用于混合,此处忽略alpha通道
+        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        //呈现模式
+        createInfo.presentMode = presentMode;
+        //是否不需要计算被窗口系统中其他窗口遮挡的像素颜色，若如此设置，回读窗口像素值可能出现问题
+        createInfo.clipped = VK_TRUE;
+        //重建交换链时需要之前的交换链
+        createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+        if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create swap chain!");
+        }
+
+        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+        swapChainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+        swapChainImageFormat = surfaceFormat.format;
+        swapChainExtent = extent;
     }
 
     //选择表面格式
@@ -415,6 +443,8 @@ private:
     }
 
     void cleanup() {
+        vkDestroySwapchainKHR(device,swapChain,nullptr);
+
         vkDestroyDevice(device, nullptr);
 
         if (enableValidationLayers) {
@@ -477,7 +507,7 @@ private:
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
         createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = debugCallback;
     }
@@ -546,8 +576,12 @@ private:
     }
 };
 
+#include <cstdlib>
+
 int main() {
     HelloTriangleApplication app;
+
+//    std::cout << getenv("VK_ICD_FILENAMES") << std::endl;
 
     try {
         app.run();
