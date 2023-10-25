@@ -8,6 +8,7 @@ find_package(Vulkan REQUIRED)
 if(APPLE)
     add_definitions(-DAPPLE)
 endif()
+add_definitions(-DCMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_executable(${PROJECT_NAME} main.cpp)
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${VULKAN_SDK}/include)

@@ -1,6 +1,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -471,8 +472,56 @@ private:
         }
     }
 
+    static std::vector<char> readFile(const std::string& filename)
+    {
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+        if (!file.is_open()) {
+            throw std::runtime_error("failed to open file!");
+        }
+
+        size_t fileSize = (size_t) file.tellg();
+        std::vector<char> buffer(fileSize);
+
+        file.seekg(0);
+        file.read(buffer.data(),fileSize);
+
+        file.close();
+
+        return buffer;
+    }
+
     void createGraphicsPipeline() {
-        //TODO: 创建渲染管线
+        auto vertShaderCode = readFile(CMAKE_SOURCE_DIR"/shaders/vert.spv");
+        auto fragShaderCode = readFile(CMAKE_SOURCE_DIR"/shaders/frag.spv");
+
+        VkShaderModule vertShaderModule;
+        VkShaderModule fragShaderModule;
+
+        vertShaderModule = createShaderModule(vertShaderCode);
+        fragShaderModule = createShaderModule(fragShaderCode);
+
+        // 显式清除创建的着色器模块对象
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
+
+        //TODO: create shaderStage
+    }
+
+    VkShaderModule createShaderModule(const std::vector<char>& code) {
+        VkShaderModuleCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        createInfo.codeSize = code.size();
+        // 注意需要将存储字节码的数组指针转换为const uint32_t*类型以匹配结构体中的变量类型
+        // 且指针指向的地址应符合uint32_t的内存对齐方式，此处使用std::vector
+        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+        VkShaderModule shaderModule;
+        if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create shader module!");
+        }
+
+        return shaderModule;
     }
 
     void mainLoop() {
@@ -619,8 +668,6 @@ private:
         return VK_FALSE;
     }
 };
-
-#include <cstdlib>
 
 int main() {
     HelloTriangleApplication app;

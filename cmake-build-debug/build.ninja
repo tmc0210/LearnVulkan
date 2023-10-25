@@ -50,7 +50,7 @@ cmake_ninja_workdir = /Users/tmc/Documents/GitHub/LearnVulkan/cmake-build-debug/
 build cmake_object_order_depends_target_LearnVulkan: phony || CMakeFiles/LearnVulkan.dir
 
 build CMakeFiles/LearnVulkan.dir/main.cpp.o: CXX_COMPILER__LearnVulkan_unscanned_Debug /Users/tmc/Documents/GitHub/LearnVulkan/main.cpp || cmake_object_order_depends_target_LearnVulkan
-  DEFINES = -DAPPLE
+  DEFINES = -DAPPLE -DCMAKE_SOURCE_DIR=\"/Users/tmc/Documents/GitHub/LearnVulkan\"
   DEP_FILE = CMakeFiles/LearnVulkan.dir/main.cpp.o.d
   FLAGS = -g -std=gnu++20 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.sdk -fcolor-diagnostics
   INCLUDES = -I/Users/tmc/VulkanSDK/1.3.261.1/macOS/include -isystem /usr/local/include
