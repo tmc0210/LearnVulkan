@@ -49,13 +49,13 @@ cmake_ninja_workdir = /Users/tmc/Documents/GitHub/LearnVulkan/cmake-build-debug/
 
 build cmake_object_order_depends_target_LearnVulkan: phony || CMakeFiles/LearnVulkan.dir
 
-build CMakeFiles/LearnVulkan.dir/main.cpp.o: CXX_COMPILER__LearnVulkan_unscanned_Debug /Users/tmc/Documents/GitHub/LearnVulkan/main.cpp || cmake_object_order_depends_target_LearnVulkan
+build CMakeFiles/LearnVulkan.dir/src/main.cpp.o: CXX_COMPILER__LearnVulkan_unscanned_Debug /Users/tmc/Documents/GitHub/LearnVulkan/src/main.cpp || cmake_object_order_depends_target_LearnVulkan
   DEFINES = -DAPPLE -DCMAKE_SOURCE_DIR=\"/Users/tmc/Documents/GitHub/LearnVulkan\"
-  DEP_FILE = CMakeFiles/LearnVulkan.dir/main.cpp.o.d
+  DEP_FILE = CMakeFiles/LearnVulkan.dir/src/main.cpp.o.d
   FLAGS = -g -std=gnu++20 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.sdk -fcolor-diagnostics
   INCLUDES = -I/Users/tmc/VulkanSDK/1.3.261.1/macOS/include -isystem /usr/local/include
   OBJECT_DIR = CMakeFiles/LearnVulkan.dir
-  OBJECT_FILE_DIR = CMakeFiles/LearnVulkan.dir
+  OBJECT_FILE_DIR = CMakeFiles/LearnVulkan.dir/src
 
 
 # =============================================================================
@@ -65,7 +65,7 @@ build CMakeFiles/LearnVulkan.dir/main.cpp.o: CXX_COMPILER__LearnVulkan_unscanned
 #############################################
 # Link the executable LearnVulkan
 
-build LearnVulkan: CXX_EXECUTABLE_LINKER__LearnVulkan_Debug CMakeFiles/LearnVulkan.dir/main.cpp.o | /usr/local/lib/libvulkan.dylib /usr/local/lib/libglfw.3.3.dylib
+build LearnVulkan: CXX_EXECUTABLE_LINKER__LearnVulkan_Debug CMakeFiles/LearnVulkan.dir/src/main.cpp.o | /usr/local/lib/libvulkan.dylib /usr/local/lib/libglfw.3.3.dylib
   FLAGS = -g -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.sdk
   LINK_LIBRARIES = -Wl,-rpath,/usr/local/lib -Wl,-rpath,/Users/tmc/VulkanSDK/1.3.261.1/macOS/lib  /usr/local/lib/libvulkan.dylib  /usr/local/lib/libglfw.3.3.dylib
   LINK_PATH = -L/Users/tmc/VulkanSDK/1.3.261.1/macOS/lib
