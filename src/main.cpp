@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+//TODO: move stb_image.h to other dir
 
 #include <fstream>
 #include <iostream>
@@ -167,6 +168,8 @@ private:
     std::vector<VkDescriptorSet> descriptorSets;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
 
     bool framebufferResized = false;
 
@@ -201,6 +204,8 @@ private:
         createFramebuffers();
         createCommandPool();
         createTextureImage();
+        createTextureImageView();
+        createTextureSampler();
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffer();
@@ -262,6 +267,7 @@ private:
             queueCreateInfos.push_back(queueCreateInfo);
         }
         VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -303,9 +309,6 @@ private:
          * return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
          */
 
-        VkPhysicalDeviceFeatures deviceFeatures;
-        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
         //确保设备支持需要指令的队列族
         QueueFamilyIndices indices = findQueueFamilies(device);
 
@@ -320,7 +323,10 @@ private:
             swapChainAdequate = !swapChainSupport.formats.empty()
                                 && !swapChainSupport.presentModes.empty();
         }
-        return indices.isComplete() && extensionsSupported && swapChainAdequate;
+
+        VkPhysicalDeviceFeatures supportedFeatures;
+        vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+        return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
     //检查设备对扩展的支持
@@ -566,30 +572,7 @@ private:
         swapChainImageViews.resize(swapChainImages.size());
 
         for (size_t i = 0; i < swapChainImages.size(); i++) {
-            VkImageViewCreateInfo createInfo = {};
-            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            createInfo.image = swapChainImages[i];
-
-            //viewType表示图像被视作一维、二维、三维纹理或立方体贴图
-            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = swapChainImageFormat;
-
-            // 图像颜色通道映射
-            createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-            //指定图像用途和图像可被访问部分
-            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            createInfo.subresourceRange.baseMipLevel = 0;
-            createInfo.subresourceRange.levelCount = 1;
-            createInfo.subresourceRange.baseArrayLayer = 0;
-            createInfo.subresourceRange.layerCount = 1;
-
-            if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create image views!");
-            }
+           swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat);
         }
     }
 
@@ -1267,6 +1250,7 @@ private:
        vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
+    //创建图像的辅助函数
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
                      VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
         //存为Vulkan图像对象
@@ -1306,6 +1290,7 @@ private:
         vkBindImageMemory(device, image, imageMemory, 0);
     }
 
+    //记录传输指令辅助函数
     VkCommandBuffer beginSingleTimeCommands() {
         VkCommandBufferAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1324,6 +1309,7 @@ private:
         return commandBuffer;
     }
 
+    //记录传输指令辅助函数
     void endSingleTimeCommands(VkCommandBuffer commandBuffer) {
         vkEndCommandBuffer(commandBuffer);
 
@@ -1338,7 +1324,7 @@ private:
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
     }
 
-    //图像布局变换
+    //使用barrier进行图像布局变换
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1411,6 +1397,81 @@ private:
         vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         endSingleTimeCommands(commandBuffer);
+    }
+
+    //创建图像视图
+    VkImageView createImageView(VkImage image, VkFormat format) {
+        VkImageViewCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = image;
+
+        //viewType表示图像被视作一维、二维、三维纹理或立方体贴图
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = format;
+
+        // 图像颜色通道映射
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        //指定图像用途和图像可被访问部分
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        VkImageView imageView;
+        if (vkCreateImageView(device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create texture image view!");
+        }
+
+        return imageView;
+    }
+
+    //创建纹理图像视图
+    void createTextureImageView() {
+        textureImageView = createImageView(textureImage, VK_FORMAT_B8G8R8A8_UNORM);
+    }
+
+    //创建纹理采样器
+    void createTextureSampler() {
+        VkSamplerCreateInfo samplerCreateInfo = {};
+        samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+
+        //放大、缩小时插值方法
+        samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+
+        //XYZ寻址模式
+        samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+        //各向异性过滤
+        samplerCreateInfo.anisotropyEnable = VK_TRUE;
+        samplerCreateInfo.maxAnisotropy = 16;
+
+        //clamp to border寻址模式的边界颜色
+        samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+
+        //坐标是否不进行归一化
+        samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+
+        //是否可将样本与设定的值比较
+        samplerCreateInfo.compareEnable = VK_FALSE;
+        samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+        //mipmap
+        samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerCreateInfo.mipLodBias = 0.0f;
+        samplerCreateInfo.minLod = 0.0f;
+        samplerCreateInfo.maxLod = 0.0f;
+
+        if (vkCreateSampler(device, &samplerCreateInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create texture sampler!");
+        }
     }
 
     void mainLoop() {
@@ -1533,6 +1594,10 @@ private:
 
     void cleanup() {
         cleanupSwapChain();
+
+        vkDestroySampler(device, textureSampler, nullptr);
+
+        vkDestroyImageView(device, textureImageView, nullptr);
 
         vkDestroyImage(device, textureImage, nullptr);
         vkFreeMemory(device, textureImageMemory, nullptr);
