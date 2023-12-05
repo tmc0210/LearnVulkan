@@ -5,9 +5,14 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/hash.hpp>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-//TODO: move stb_image.h to other dir
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+//TODO: move stb_image.h & tiny_obj_loader.h to other dir
 
 #include <fstream>
 #include <iostream>
@@ -16,6 +21,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <set>
+#include <unordered_map>
 
 //顶点数据结构体
 struct Vertex {
@@ -50,7 +56,19 @@ struct Vertex {
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
         return bindingDescription;
     }
+
+    bool operator==(const Vertex& other) const {
+        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+    }
 };
+
+namespace std {
+    template<> struct hash<Vertex> {
+        size_t operator()(Vertex const& vertex) const {
+            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+        }
+    };
+}
 
 //队列族返回值结构体
 struct QueueFamilyIndices {
@@ -79,6 +97,9 @@ struct UniformBufferObject {
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
+const std::string MODEL_PATH = CMAKE_SOURCE_DIR"/models/viking_room.obj";
+const std::string TEXTURE_PATH = CMAKE_SOURCE_DIR"/textures/viking_room.png";
+
 //可并行处理的最大帧数
 const int MAX_FRAME_IN_FLIGHT = 2;
 
@@ -104,23 +125,6 @@ const bool enableValidationLayers = true;
 #else
 const bool enableValidationLayers = false;
 #endif
-
-const std::vector<Vertex> vertices = {
-        {{-0.5f,-0.5f, 0.0f},{1.0f,0.0f,0.0f},{0.0f, 0.0f}},
-        {{0.5f, -0.5f, 0.0f},{0.0f,1.0f,0.0f},{1.0f, 0.0f}},
-        {{0.5f,0.5f, 0.0f},{0.0f,0.0f,1.0f},{1.0f, 1.0f}},
-        {{-0.5f,0.5f, 0.0f},{1.0f,1.0f,1.0f},{0.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-
-const std::vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-};
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -172,6 +176,8 @@ private:
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     size_t currentFrame = 0;
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
@@ -224,6 +230,7 @@ private:
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
+        loadModel();
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffer();
@@ -1035,7 +1042,7 @@ private:
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-            vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+            vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS
                                     , pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
@@ -1292,7 +1299,7 @@ private:
         //加载图像数据
         int texWidth, texHeight, texChannels;
         //STBI_rgb_alpha 无alpha通道则强制载入alpha通道为默认值
-        stbi_uc* pixels = stbi_load(CMAKE_SOURCE_DIR"/textures/texture.jpg", &texWidth, &texHeight ,&texChannels, STBI_rgb_alpha);
+        stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight ,&texChannels, STBI_rgb_alpha);
         VkDeviceSize imageSize = texWidth * texHeight * 4;
 
         if (!pixels) {
@@ -1602,6 +1609,48 @@ private:
         }
 
         throw std::runtime_error("failed to find supported format!");
+    }
+
+    void loadModel() {
+        tinyobj::attrib_t attrib;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+        std::string err;
+        std::string warn;
+
+        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
+            throw std::runtime_error(warn + err);
+        }
+
+        std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+
+        for (const auto &shape: shapes) {
+            for (const auto &index: shape.mesh.indices) {
+                Vertex vertex{};
+
+                vertex.pos = {
+                        attrib.vertices[3 * index.vertex_index + 0],
+                        attrib.vertices[3 * index.vertex_index + 1],
+                        attrib.vertices[3 * index.vertex_index + 2]
+                };
+
+                vertex.texCoord = {
+                        attrib.texcoords[2 * index.texcoord_index + 0],
+                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                };
+
+                vertex.color = {1.0f, 1.0f, 1.0f};
+
+                if (uniqueVertices.count(vertex) == 0) {
+                    uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                    vertices.push_back(vertex);
+                }
+
+                indices.push_back(uniqueVertices[vertex]);
+            }
+        }
+
     }
 
     void mainLoop() {

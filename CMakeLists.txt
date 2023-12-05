@@ -10,7 +10,8 @@ if(APPLE)
 endif()
 add_definitions(-DCMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_executable(${PROJECT_NAME} src/main.cpp
-        src/stb_image.h)
+        src/stb_image.h
+        src/tiny_obj_loader.h)
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${VULKAN_SDK}/include)
 target_link_directories(${PROJECT_NAME} PRIVATE ${VULKAN_SDK}/lib)
